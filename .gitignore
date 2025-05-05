@@ -1,0 +1,5 @@
+*.o
+*.exe
+numbers.txt
+*.pdf
+*.ps
