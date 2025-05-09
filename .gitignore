@@ -1,5 +1,57 @@
+# Compiled Object files
 *.o
+*.obj
+
+# Executable files
 *.exe
-numbers.txt
-*.pdf
-*.ps
+*.out
+*.app
+
+# Libraries
+*.lib
+*.a
+*.so
+*.dll
+*.dylib
+
+# Debug files
+*.dSYM/
+*.stackdump
+*.core
+
+# OS-specific files
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# IDE-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CMake and build folders
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build/
+out/
+
+# Logs
+*.log
+
+# Misc
+*.tmp
+*.bak
+*.old
