@@ -1,5 +1,5 @@
-#ifndef UTIL_HPP
-#define UTIL_HPP
+#ifndef UTIL_H
+#define UTIL_H
 
 #include "vector.h"
 
@@ -82,4 +82,4 @@ bool is_palindrome(const char *str);
  */
 void abort_on_failed_allocation(void *ptr);
 
-#endif /* UTIL_HPP */
+#endif /* UTIL_H */
