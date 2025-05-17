@@ -11,16 +11,16 @@
     Elapsed time: 362.100000us
  * The mutex version is somewhat (~10x) slower because we have a total of 2**20 calls to
  * pthread_mutex_lock and pthread_mutex_unlock each and each thread has to wait for the other
+ * making the calculation essentially sequential
  */
 
-// I won't bother with pretty architecture for this simple example
 int sum = 0;
 const int N = 1048576;
 int *array;
 int sum1 = 0, sum2 = 0;
 pthread_mutex_t mutex;
 
-void *thread1_mutex(void *) {
+void *thread1_mutex(void *arg) {
     for (int i = 0; i < N / 2; ++i) {
         pthread_mutex_lock(&mutex);
         sum += array[i];
@@ -30,7 +30,7 @@ void *thread1_mutex(void *) {
     return NULL;
 }
 
-void *thread2_mutex(void *) {
+void *thread2_mutex(void *arg) {
     for (int i = N / 2; i < N; ++i) {
         pthread_mutex_lock(&mutex);
         sum += array[i];
@@ -40,14 +40,14 @@ void *thread2_mutex(void *) {
     return NULL;
 }
 
-void *thread1_partial(void *) {
+void *thread1_partial(void *arg) {
     for (int i = 0; i < N / 2; ++i)
         sum1 += array[i];
 
     return NULL;
 }
 
-void *thread2_partial(void *) {
+void *thread2_partial(void *arg) {
     for (int i = N / 2; i < N; ++i)
         sum2 += array[i];
 

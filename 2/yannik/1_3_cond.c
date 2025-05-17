@@ -3,30 +3,38 @@
  * Vgl. Vorlesung Betriebssysteme, Coffmann (1971):
  * - Wechselseitiger Ausschluss (mutual exclusion): Jedes involvierte Betriebsmittel ist entweder
  * exklusiv belegt oder frei
- * - Zusätzliche Belegung (Hold-and-wait): Die Prozesse haben bereits Betriebsmittel belegt, wollen
- * zusätzliche Betriebsmittel belegen und warten darauf, dass sie frei werden.
- * - Keine vorzeitige Rückgabe (No preemption): Bereits belegte Betriebsmittel können den Prozessen
- * nicht einfach wieder entzogen werden
+ * - Zusaetzliche Belegung (Hold-and-wait): Die Prozesse haben bereits Betriebsmittel belegt, wollen
+ * zusaetzliche Betriebsmittel belegen und warten darauf, dass sie frei werden.
+ * - Keine vorzeitige Rueckgabe (No preemption): Bereits belegte Betriebsmittel koennen den
+ * Prozessen nicht einfach wieder entzogen werden
  * - Gegenseitiges Warten (Circulat wait): Es existiert ein Zyklus von zwei oder mehr Prozessen, bei
- * denen jeweils einer die Betriebsmittel vom nächsten belegen will, die dieser belegt hat
+ * denen jeweils einer die Betriebsmittel vom naechsten belegen will, die dieser belegt hat
  */
 
-/**
- * @note 2.3 b)
- * Wird nur dort, wo das yield-flag per if ausgewertet wird die cond-Variable verwendet, wird immer
- * ein Deadlock eintreten: Der letzte Thread, der cond_wait aufruft, wird nie ein Signal bekommen.
- * Außerdem tritt sofort ein Deadlock ein, sobald lock_forward mutex 2 locked: Es wird so lange
- * warten, bis lock_backward ein Signal sendet. lock_backward wird aber versuchen, für i == 2
- * pthread_mutex_lock(&mutex[i]) aufzurufen und wartet darauf, dass mutex 2 unlocked wird, was nie
- * geschehen wird.
- */
+/*
+    b)
+    Das modifizierte Programm kommt in einem Deadlock,
+    weil (angenommen der forward locker (FL) ist zuerst an der yield flag) der Programmablauf
+   folgendermassen ist: FL lockt mutex[0] erreicht die yieldflag und wartet auf ein Signal BL lockt
+   mutex[2] erreicht die yieldflag, weckt FL auf und wartet auf ein Signal FL lockt mutex[1]
+   erreicht die yieldflag, weckt BL auf und wartet auf ein Signal BL versucht mutex[1] zu locken,
+   der ist aber bereits von FL gesperrt, gibt also alle Mutexe frei, erreicht die yieldflag, weckt
+   FL und wartet auf ein Signal FL lock mutex[2] erreicht die yieldflag, weckt BL auf und wartet auf
+   ein Signal BL versucht mutex[2] zu locken, scheitert, und wartet darauf, dass mutex[2] frei wird
+        => Beide Threads warten aufeinander
+        => Deadlock
 
-#include <errno.h> // Für EBUSY
+    Verwendet man statt pthread_mutex_lock pthread_mutex_unlock fuer mutex[0] in FL und mutex[2] in
+   BL, dann laeuft das Programm bis entweder FL oder BL fertig sind. Der andere Thread bleibt dann
+   haengen, weil er kein Signal mehr bekommen kann.
+*/
+
+#include <errno.h> // Fuer EBUSY
 #include <pthread.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h> // Für sleep()
+#include <unistd.h> // Fuer sleep()
 
 pthread_mutex_t mutex[3] = {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
                             PTHREAD_MUTEX_INITIALIZER};
@@ -83,9 +91,7 @@ void *lock_forward(void *arg) {
 
             if (yield_flag) {
                 if (yield_flag > 0) {
-                    printf("forward locker will wait\n");
                     wait();
-                    printf("forward locker was waken up\n");
                 } else {
                     sleep(1);
                 }
@@ -121,9 +127,7 @@ void *lock_backward(void *arg) {
 
             if (yield_flag) {
                 if (yield_flag > 0) {
-                    printf("backward locker will wait\n");
                     wait();
-                    printf("backward locker was waken up\n");
                 } else {
                     sleep(1);
                 }

@@ -12,10 +12,14 @@ int thread_count = 0;
 int winner = 0;
 int three_counts[] = {0, 0, 0};
 
-void *thread(void *) {
+void *thread(void *arg) {
     pthread_mutex_lock(&mutex);
     int ID = ++thread_count;
     pthread_mutex_unlock(&mutex);
+
+    // seed the rng with a different seed for every thread
+    unsigned int seed = time(NULL) + ID;
+    srand(seed);
 
     int number;
     while (winner == 0) {
