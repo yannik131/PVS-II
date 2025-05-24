@@ -107,11 +107,17 @@ int rw_lock_rlock(rw_lock_t *rwl) {
 
 int rw_lock_wlock(rw_lock_t *rwl) {
     pthread_mutex_lock(&rwl->m);
+    #ifdef A3_2
     while (rwl->num_w > 0 || rwl->num_r > 0) {
         rwl->is_waiting++;
         pthread_cond_wait(&rwl->c, &rwl->m);
         rwl->is_waiting--;
     }
+    #else
+    while (rwl->num_w > 0 || rwl->num_r > 0) {
+        pthread_cond_wait(&rwl->c, &rwl->m);
+    }
+    #endif
     rwl->num_w = 1;
     pthread_mutex_unlock(&rwl->m);
     return 0;
