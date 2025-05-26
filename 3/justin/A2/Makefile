@@ -1,6 +1,6 @@
 gccflags = -Wall -Wpedantic
 
-all: rw
+all: rw.o
 
-rw: rw.c
+rw.o: rw.c
 	gcc ${gccflags} -o rw.o rw.c
