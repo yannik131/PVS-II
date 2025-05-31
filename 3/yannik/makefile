@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -O3 -Wall 
 THREADFLAGS = -pthread 
 
-all: 3_1 
+all: 3_1 3_2
 
 3_1.o: 3_1.c 
 	$(CC) $(CFLAGS) -c 3_1.c 
@@ -10,5 +10,11 @@ all: 3_1
 3_1: 3_1.o
 	$(CC) 3_1.o -o 3_1 $(THREADFLAGS) $(CFLAGS)
 
+3_2.o: 3_2.c 
+	$(CC) $(CFLAGS) -c 3_2.c
+
+3_2: 3_2.o 	
+	$(CC) 3_2.o -o 3_2 $(THREADFLAGS) $(CFLAGS)
+
 clean:
-	rm -f *.o 3_1 
+	rm *.o 3_1 3_2
