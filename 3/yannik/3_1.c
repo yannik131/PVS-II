@@ -30,7 +30,7 @@
   Exiting search_tree
 
  * 3.1 d) Wenn jeder Thread beim Schreiben/Lesen den gesamten Baum sperrt, wird der Baum praktisch
- * sequentiell abgearbeitet, ohne Parallelisierung zu nutzen. Das waere aber nicht notwendig, wenn
+ * sequentiell abgearbeitet. Das waere aber nicht notwendig, wenn
  * bspw. n Threads nur lesend zugreifen wollen und kein Schreibvorgang stattfinden soll.
  * Vernachlaessigbar waere das, wenn der Baum nur wenige Elemente hat und gut balanciert ist oder
  * wenn es nur wenige Threads gibt, die auf ihn zugreifen muessen.

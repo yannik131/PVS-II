@@ -38,8 +38,8 @@ Write thread acquired write access
 Thread with ID 2 acquired read access
 Thread with ID 2 acquired read access
 
-Da in der modifizierten Variante die Lesethreads auch mal warten, kommt hier der Schreibthread etwas
-früher dran.
+Da in der modifizierten Variante die Lesethreads haeufiger warten, kommt hier der Schreibthread
+etwas frueher dran.
  */
 
 typedef struct {

@@ -8,34 +8,74 @@
 
 /**
  * 3.3 a)
- * Möglich: Wenn die Ergebnisse der Iterationen nicht voneinander abhängen und die
- * Ausführungszeit nicht durch I/O begrenzt ist sondern durch die CPU
+ * Moeglich: Wenn die Ergebnisse der Iterationen nicht voneinander abhaengen und die
+ * Ausfuehrungszeit nicht durch I/O begrenzt ist sondern durch die CPU
  *
- * Lohnenswert: Wenn für ein
+ * Lohnenswert: Wenn fuer ein
  * langsames Programm der Profiler zeigt, dass die Schleife einen wesentlichen Anteil an der
- * Ausführungszeit hat
+ * Ausfuehrungszeit hat
+ *
+ * Bezogen auf die Schleifen im gegebenen Programm:
+ *
+     // Setting the initial values
+     for (int i = 1; i < grid_size; i++)
+        // ...
+    Nicht parallelisierbar, da das Ergbnis der vorherigen Iteration benoetigt wird (T_k[i] = ...
+ T_k[i-1] ...).
+
+    // Time loop
+    for (int k = 0; k < num_time_steps; k++)
+    {
+        // ...
+    }
+    Nicht parallelisierbar, da die Berechnung von T_kn auf T_k basiert (was dem T_kn der letzten
+ Iteration entspricht).
+
+    // System loop
+    for (int i = 0; i < grid_size; i++)
+    {
+        // ...
+    }
+    Parallelisierbar, da T_k sich in der Schleife nicht aendert.
+    Die Parallelisierung ist auch lohnenswert, da diese Schleife num_time_steps-Mal verwendet wird.
+
+    // Computing statistics of the final temperature of the grid
+    for (int i = 0; i < grid_size; i++)
+    {
+        // ...
+    }
+    Parallelsierbar, wenn das setzen von (z.B. globalen) T_max und T_min z.B. durch Mutexe
+ geschuetzt wird. Aber nicht lohnenswert, da die Schleife nur einmal verwendet wird.
+
+    for (int i = 0; i < grid_size; i++)
+        // ...
+    Parallelsierbar, wenn das setzen von T_average z.B. durch einen Mutex geschuetzt wird.
+    Aber nicht lohnenswert, da die Schleife nur einmal verwendet wird.
  *
  * 3.3 c)
- * Speedups siehe 3_3_speedups.png. Er ist fast vernachlässigbar: Der Overhead für die
- * Threadkommunikation (insbesondere wohl das barrier_wait) überwiegt den
- * Geschwindigkeitsvorteil durch Parallelisierung
+ * Speedups siehe 3_3_speedups.png. Er ist fast vernachlaessigbar: Das Programm kann sich nicht
+ vollstaendig parallelisieren lassen (s. a)). Dazu kommt der Overhead fuer die Threadkommunikation
+ (v. a. barrier_wait). Außerdem laesst sich nicht beeinflussen, ob die Threads tatsaechlich auch auf
+ mehreren Prozessoren vom Betriebssystem verteilt werden.
  *
  * 3.4 a)
- * Einzelne Blöcke im Cache haben oft eine Größe von etwa 64 Bytes und werden cache
- * lines genannt. Benachbarte Elemente eines Arrays, die von mehreren Threads genutzt werden, können
+ * Einzelne Bloecke im Cache haben oft eine Groeße von etwa 64 Bytes und werden cache
+ * lines genannt. Benachbarte Elemente eines Arrays, die von mehreren Threads genutzt werden,
+ koennen
  * in derselben cache line liegen. Jeder Prozessor hat seine eigene, lokale Kopie des Caches.
  * Schreibt bspw. Thread 1 in die cache line auf seinem Prozessor, muss Thread 2 seine lokale Kopie
- * neu laden (um cache coherence zu erhalten), obwohl das gar nicht nötig wäre.
+ * neu laden (um cache coherence zu erhalten), obwohl das gar nicht noetig waere. Das wird false
+ sharing genannt.
  *
  * 3.4 b) Mithilfe von posix_memalign kann ermittelt werden, wie groß eine cache line ist. Dann muss
- * jeder Thread seine Mutexes im Array mit leerem Speicher mindestens der Größe einer cache line
- * padden, bspw. indem zusätzliche, ungenutzte mutexes in das Array gelegt werden. Dann liegt jeder
+ * jeder Thread seine Mutexes im Array mit leerem Speicher mindestens der Groeße einer cache line
+ * padden, bspw. indem zusaetzliche, ungenutzte mutexes in das Array gelegt werden. Dann liegt jeder
  * mutex auf seiner eigenen cache line, was das Neuladen verhindert.
  *
- * 3.4 c) Das Lock ist der Teil vom Mutex, der regelmäßig beschrieben werden muss und false sharing
- * verursachen kann. Liegt das Lock auf dem Heap, sind die zu schreibenden Daten häufiger weit
- * auseinander (es sei denn malloc legt sie zufällig direkt nebeneinander, was unwahrscheinlich
- * ist). Das würde false sharing verhindern. Liegt das Lock im Mutex, wird false sharing
+ * 3.4 c) Das Lock ist der Teil vom Mutex, der regelmaeßig beschrieben werden muss und false sharing
+ * verursachen kann. Liegt das Lock auf dem Heap, sind die zu schreibenden Daten haeufiger weit
+ * auseinander (es sei denn malloc legt sie zufaellig direkt nebeneinander, was unwahrscheinlich
+ * ist). Das wuerde false sharing verhindern. Liegt das Lock im Mutex, wird false sharing
  * wahrscheinlicher.
  */
 
@@ -106,7 +146,7 @@ void init_grid(grid_t *grid) {
     grid->grid_size = (30 * 1024 * 1024);
     grid->delta_t = 0.02;
     grid->conductivity_constant = 0.1;
-    grid->num_time_steps = 300;
+    grid->num_time_steps = 3000;
 
     // Current temperature
     grid->T_k = malloc(sizeof(double) * grid->grid_size);
