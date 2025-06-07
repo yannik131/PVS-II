@@ -1,16 +1,10 @@
 /*
     a)
     We split the array in nprocs (about) equal parts.
-    Each thread sorts his local subarray with radixsort.
-    After all threads are done the results are merged as in mergesort.
-    Analysis:
-    Radixsort takes O(kn), for n = input size, k = amount of radices to look at
-    The merge step takes O(tn), for t = number of threads
-    Total time for parallelized Algorithm: O(k*n/t) + O(tn)
-    If we use t = sqrt(k) threads: O(k * n / sqrt(k)) + O(sqrt(k) n) = O(sqrt(k)n)
-    meaning the optimal speedup compared to the sequential algorithm is kn / sqrt(k)n = sqrt(k) = t
-    So the optimal speedup is linear in the number of threads for t = sqrt(k) threads.
-    Since k = 32 for unsigned integers and radix 2 we use 6 threads.
+    Each thread creates its local ones and zeroes array.
+    Once all threads are done for the step, two local arrays with the positions of the ones and zeroes for every thread are updated.
+    The main thread calculates the presum, then the worker threads update the shared array.
+    Since each thread operates on a different part of the shared memory, we don't need to use mutexes.
 */
 
 #include <stdio.h>
@@ -22,22 +16,20 @@
 #include <pthread.h>
 #include <string.h>
 
-#ifndef NUM_THREADS
-    #define NUM_THREADS 6
-#endif
-
-typedef struct args{
-    unsigned int* list;
-    unsigned int n;
+typedef struct args {
+    unsigned int start, end;
+    unsigned int *list;
+    unsigned int *zero_index, *ones_index;
+    pthread_barrier_t *barrier_split, *barrier_presum, *barrier_done;
 }args_t;
 
 const char USAGE[200] = "USAGE:\n./radix_parallel -n <int >= 1> | -f <path to file>\n\tIf -n is given a list of size 2^n is filled with 2^n integers\n\tIf -f (and not -n) is given: reads the numbers from the given file\n";
-const int MAX_PRINT_SIZE = 20;
+const int MAX_PRINT_SIZE = 40;
 
 void rand_init_list(unsigned int* const list, const unsigned int n);
 void read_list(char* file_name, unsigned int** list, unsigned int *n);
 void print_list(const unsigned int* const list, const unsigned int n);
-void radix_base(unsigned int* const list, const unsigned int n);
+void radix_base(unsigned int* const list, const unsigned int n, const unsigned int num_threads);
 void* radix_thread(void* _args);
 void radix(unsigned int* const list, const unsigned int n);
 bool check_sort(const unsigned int* const list, const unsigned int n);
@@ -87,9 +79,11 @@ int main(int argc, char** argv) {
         printf("sorting list of length %d\n", n);
     }
 
+    long num_threads = sysconf(_SC_NPROCESSORS_ONLN);
+
     struct timeval start, end;
     gettimeofday(&start, NULL);
-    radix_base(list, n);
+    radix_base(list, n, num_threads);
     gettimeofday(&end, NULL);
 
     if (n <= MAX_PRINT_SIZE)  {
@@ -100,8 +94,9 @@ int main(int argc, char** argv) {
     printf("Is the resulting list sorted: %s\n", check_sort(list, n) ? "yes" : "no");
 
     const long long elapsed_time_usec = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
-    //long long elapsed_time_msec = elapsed_time_usec / 1000;
-    printf("Time spent: %lld us\n", elapsed_time_usec);
+    const long long elapsed_time_msec = elapsed_time_usec / 1000;
+    const long long elapsed_time_sec = elapsed_time_msec / 1000;
+    printf("Time spent: %lld s, %lld ms, %lld us\n", elapsed_time_sec, elapsed_time_msec % 1000, elapsed_time_usec % 1000);
 
     free(list);
 }
@@ -147,90 +142,89 @@ void print_list(const unsigned int* const list, const unsigned int n) {
 }
 
 // starts NUM_THREADS threads
-void radix_base(unsigned int* const list, const unsigned int n) {
-    unsigned int start_indices[NUM_THREADS];
-    unsigned int end_indices[NUM_THREADS];
-
-    unsigned int step = n / NUM_THREADS;
-    for (int i = 0; i < NUM_THREADS; i++) {
-        start_indices[i] = i * step;
-        end_indices[i] = (i+1) * step + ((i == NUM_THREADS - 1) ? n % NUM_THREADS : 0);
+void radix_base(unsigned int* const list, const unsigned int n, const unsigned int num_threads) {
+    pthread_t* threads = malloc(sizeof(pthread_t) * num_threads);
+    args_t* args = malloc(sizeof(args_t) * num_threads);
+    unsigned int* zero_indices = malloc(sizeof(unsigned int) * num_threads);
+    unsigned int* ones_indices = malloc(sizeof(unsigned int) * num_threads);
+    pthread_barrier_t barrier_split, barrier_presum, barrier_done;
+    pthread_barrier_init(&barrier_split, NULL, num_threads + 1);
+    pthread_barrier_init(&barrier_presum, NULL, num_threads + 1);
+    pthread_barrier_init(&barrier_done, NULL, num_threads);
+    unsigned int step = n / num_threads;
+    for (int t = 0; t < num_threads; t++) {
+        args[t].start = t * step;
+        args[t].end = (t + 1) * step + ((t == num_threads-1) ? n % num_threads : 0);
+        args[t].list = list;
+        args[t].zero_index = &zero_indices[t];
+        args[t].ones_index = &ones_indices[t];
+        args[t].barrier_split = &barrier_split;
+        args[t].barrier_presum = &barrier_presum;
+        args[t].barrier_done = &barrier_done;
+        pthread_create(&threads[t], NULL, radix_thread, &args[t]);
     }
 
-    pthread_t threads[NUM_THREADS];
-    args_t args[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++) {
-        args[i].list = list + start_indices[i];
-        args[i].n = end_indices[i] - start_indices[i];
-        pthread_create(&threads[i], NULL, radix_thread, &args[i]);
-    }
-
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    // merge results
-    unsigned int* temp_list = malloc(sizeof(unsigned int) * n);
-    for (int i = 0; i < n; i++) {
-        unsigned int min = 1 << 31;
-        unsigned int index = 0;
-        for (int thread = 0; thread < NUM_THREADS; thread++) {
-            if (list[start_indices[thread]] < min && start_indices[thread] < end_indices[thread]) {
-                min = list[start_indices[thread]];
-                index = thread;
-            }
+    unsigned int number_bits = sizeof(unsigned int) * 8;
+    for (int current_bit = 0; current_bit < number_bits; current_bit++) {
+        pthread_barrier_wait(&barrier_split);
+        for (int t = 1; t < num_threads; t++) {
+            zero_indices[t] += zero_indices[t - 1];
         }
-        start_indices[index]++;
-        temp_list[i] = min;
+        ones_indices[0] += zero_indices[num_threads - 1];
+        for (int t = 1; t < num_threads; t++) {
+            ones_indices[t] += ones_indices[t - 1];
+        }
+        pthread_barrier_wait(&barrier_presum);
     }
 
-    memcpy(list, temp_list, sizeof(unsigned int) * n);
-    free(temp_list);
+    for (int t = 0; t < num_threads; t++) {
+        pthread_join(threads[t], NULL);
+    }
 }
 
 void* radix_thread(void* _args) {
     args_t* args = (args_t*) _args;
-    radix(args->list, args->n);
-    return NULL;
-}
 
-// uses radix sort (with radix 2) to sort the n first elements of the list.
-// the list must contain at least n elements
-void radix(unsigned int* const list, const unsigned int n) {
+    unsigned int n = args->end - args->start;
+    unsigned int* my_list = malloc(sizeof(unsigned int) * n);
     unsigned int* zeroes = malloc(sizeof(unsigned int) * n);
     unsigned int* ones = malloc(sizeof(unsigned int) * n);
 
     unsigned int number_bits = sizeof(unsigned int) * 8;
     for (int current_bit = 0; current_bit < number_bits; current_bit++) {
-        unsigned int index_zeroes = 0;
-        unsigned int index_ones = 0;
+        memcpy(my_list, args->list + args->start, (sizeof(unsigned int) * n));
 
-        // bucketing
+        unsigned int num_ones = 0, num_zeroes = 0;
         for (int i = 0; i < n; i++) {
-            if ((list[i] >> current_bit) & 0x1) {
-                ones[index_ones] = list[i];
-                index_ones++;
+            if ((my_list[i] >> current_bit) & 0x1) {
+                ones[num_ones] = my_list[i];
+                num_ones++;
             }
             else {
-                zeroes[index_zeroes] = list[i];
-                index_zeroes++;
+                zeroes[num_zeroes] = my_list[i];
+                num_zeroes++;
             }
         }
 
+        // update global information
+        *(args->zero_index) = num_zeroes;
+        *(args->ones_index) = num_ones;
+
+        pthread_barrier_wait(args->barrier_split);
+        pthread_barrier_wait(args->barrier_presum);
+
         // collecting
-        unsigned int index_list = 0;
-        for (int i = 0; i < index_zeroes; i++) {
-            list[index_list] = zeroes[i];
-            index_list++;
-        }
-        for (int i = 0; i < index_ones; i++) {
-            list[index_list] = ones[i];
-            index_list++;
-        }
+        memcpy(args->list + (*(args->zero_index) - num_zeroes), zeroes, sizeof(unsigned int) * num_zeroes);
+        memcpy(args->list + (*(args->ones_index) - num_ones), ones, sizeof(unsigned int) * num_ones);
+
+        pthread_barrier_wait(args->barrier_done);
     }
 
     free(zeroes);
     free(ones);
+    free(my_list);
+
+    return NULL;
 }
 
 // returns true if the given list is sorted for the first n elements
