@@ -5,3 +5,4 @@ numbers.txt
 *.ps
 .DS_STORE
 .vscode
+*.class
