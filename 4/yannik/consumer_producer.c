@@ -50,9 +50,11 @@ void *produce(void *p_arg) {
         pthread_mutex_lock(&mutex);
         if (queue.size == 5)
             pthread_cond_wait(&cond, &mutex);
-        pthread_mutex_unlock(&mutex);
+        else
+            pthread_cond_signal(&cond);
         offer(i);
         printQueueContent();
+        pthread_mutex_unlock(&mutex);
         //////////////////////////////
 
         sleep(arg->time_to_sleep);
@@ -69,11 +71,13 @@ void *consume(void *c_arg) {
         //////////////////////////////
         // TO SYNCHRONIZE:
         pthread_mutex_lock(&mutex);
-        if (queue.size < 5)
+        if (queue.size == 0)
+            pthread_cond_wait(&cond, &mutex);
+        else if (queue.size < 5)
             pthread_cond_signal(&cond);
-        pthread_mutex_unlock(&mutex);
         item = poll();
         printQueueContent();
+        pthread_mutex_unlock(&mutex);
         //////////////////////////////
 
         sleep(arg->time_to_sleep);
@@ -86,22 +90,18 @@ void *consume(void *c_arg) {
  * Offers an item to be inserted into the queue at it's end
  */
 void offer(int item) {
-    pthread_mutex_lock(&mutex);
     queue.container[queue.size] = item;
     queue.size++;
-    pthread_mutex_unlock(&mutex);
 }
 
 /*
  * Removes and returns the first item of the queue
  */
 int poll() {
-    pthread_mutex_lock(&mutex);
     int return_val = queue.container[0];
     for (int i = 1; i < queue.size; i++)
         queue.container[i - 1] = queue.container[i];
     queue.size--;
-    pthread_mutex_unlock(&mutex);
 
     return return_val;
 }
