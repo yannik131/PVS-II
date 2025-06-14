@@ -1,6 +1,5 @@
 *.o
 *.exe
-numbers.txt
 *.pdf
 *.ps
 .DS_STORE
