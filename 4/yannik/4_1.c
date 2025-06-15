@@ -2,6 +2,7 @@
 #include "vector.h"
 
 #include <assert.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,30 +13,32 @@ pthread_barrier_t barrier_gather;
 
 /**
  * 4.1 a)
- * Mehrere Möglichkeiten:
- *  1. 10 Threads laufen für jede Ziffer parallel durch das gesamte Array und füllen die bins auf.
- * Einfachste Variante, da hier außer einer Barriere vor der Sammelphase kaum synchronisiert werden
+ * Mehrere Moeglichkeiten:
+ *  1. 10 Threads laufen fuer jede Ziffer parallel durch das gesamte Array und fuellen die bins auf.
+ * Einfachste Variante, da hier ausser einer Barriere vor der Sammelphase kaum synchronisiert werden
  * muss, weil jeder Thread auf sein eigenes Array schreibt
- *  2. Das Array wird für n Threads in n Partitionen unterteilt, die jeder Thread jeweils einmal
- * iteriert. Jeder Thread schreibt auf seine eigene Kopie aller 10 Arrays für die bins. Die
- * Sammelphase wird dann kompliziert, da dann 10*n Arrays zusammengeführt werden müssen, aber das
+ *  2. Das Array wird fuer n Threads in n Partitionen unterteilt, die jeder Thread jeweils einmal
+ * iteriert. Jeder Thread schreibt auf seine eigene Kopie aller 10 Arrays fuer die bins. Die
+ * Sammelphase wird dann kompliziert, da dann 10*n Arrays zusammengefuehrt werden muessen, aber das
  * ganze skaliert besser als 1.
- *  3. Wie 2., aber alle Threads teilen sich die 10 Arrays. Ständiges locken/unlocken wäre
- * erforderlich, was den Performancegewinn beeinträchtigt -> Mach ich nicht
+ *  3. Wie 2., aber alle Threads teilen sich die 10 Arrays. Staendiges locken/unlocken waere
+ * erforderlich, was den Performancegewinn beeintraechtigt -> Mach ich nicht
  *
  * -> Variante 2. wird implementiert
  *
  * Vorgehen:
- * - Teile das Array in n gleich große Unterarrays/Segmente auf
+ * - Teile das Array in n gleich grosse Unterarrays/Segmente auf
  * - Jedem Thread wird ein Unterarray zugewiesen in aufsteigender Reihenfolge bezogen auf die
  * Segmentposition im Array
- * - Jeder Thread erhält eine Instanz von thread_info_t wo ein Zeiger auf das zu sortierende Array
+ * - Jeder Thread erhaelt eine Instanz von thread_info_t wo ein Zeiger auf das zu sortierende Array
  * enthalten ist und ein Zeiger auf ein Array mit 10 vector Instanzen
- * - Jeder Thread durchläuft die n < n_iterations Schleife mit einer Barriere am Schleifenende
+ * - Jeder Thread durchlaeuft die n < n_iterations Schleife mit einer Barriere am Schleifenende
  * - Nach dem Erreichen der Barriere sendet ein Thread ein Signal an den main-thread, der alle bins
- * in aufsteigender Reihenfolge für jede Ziffer durchiteriert und so das Array wieder auffüllt
- * (iteriere die n arrays für bin 0, dann bin 1, ..., bin 9)
- * -
+ * in aufsteigender Reihenfolge fuer jede Ziffer durchiteriert und so das Array wieder auffuellt
+ * (iteriere die n arrays fuer bin 0, dann bin 1, ..., bin 9)
+ *
+ * Anbei sind 2 Abbildungen wo die Ausfuehrungsgeschwindigkeit des parallelisierten Programms fuer
+ * ein kleines und grosses array gemessen wurden
  */
 
 typedef struct {
@@ -153,7 +156,7 @@ int main(int argc, char **argv) {
         vector = read_numbers_from_file(path);
     } else {
         int n = atoi(argv[2]);
-        vector = generate_random_array(n);
+        vector = generate_random_array((int)pow(2, n));
     }
 
     int *array = vector_data(vector);

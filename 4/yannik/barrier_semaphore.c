@@ -8,11 +8,11 @@ typedef struct _thrarg_t {
     int n;
 } thrarg_t;
 
-// Beginn globale Variablen für Barrier
+// Beginn globale Variablen fuer Barrier
 sem_t barrier_semaphore;
 sem_t lock_semaphore;
 int barrier_count;
-// Ende globale Variablen für Barrier
+// Ende globale Variablen fuer Barrier
 
 void *work(void *arg) {
     thrarg_t *targ = (thrarg_t *)arg;
@@ -54,11 +54,11 @@ int main(int argc, char *argv[]) {
     pthread_t tid[n];
     thrarg_t arg[n];
 
-    // Beginn Initialisierung der globalen Variablen für Barrier
+    // Beginn Initialisierung der globalen Variablen fuer Barrier
     sem_init(&lock_semaphore, 0, 1);
     sem_init(&barrier_semaphore, 0, 0);
     barrier_count = 0;
-    // Ende Initialisierung der globalen Variablen für Barrier
+    // Ende Initialisierung der globalen Variablen fuer Barrier
 
     for (i = 0; i < n; ++i) {
         arg[i].tid = i;
