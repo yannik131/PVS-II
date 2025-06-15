@@ -3,11 +3,11 @@ import re
 import matplotlib.pyplot as plt
 
 times = []
-threads = range(1, 17)
+threads = range(1, 30)
 
 for t in threads:
     result = subprocess.run(
-        [r".\4_1.exe", str(t), "1000"],
+        [r".\4_1.exe", str(t), "10"],
         capture_output=True, text=True, shell=True
     )
     print(result.stdout)

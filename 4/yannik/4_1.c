@@ -156,7 +156,13 @@ int main(int argc, char **argv) {
         vector = read_numbers_from_file(path);
     } else {
         int n = atoi(argv[2]);
-        vector = generate_random_array((int)pow(2, n));
+        if (n < 0 || n > 30) {
+            fprintf(stderr, "n must be between 0 and 30\n");
+            exit(1);
+        } else
+            printf("Using vector of size %d**2 = %d\n", n, 1 << n);
+
+        vector = generate_random_array(1 << n);
     }
 
     int *array = vector_data(vector);

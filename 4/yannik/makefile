@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -O3
 THREADFLAGS = -pthread
 
-all: 4_1 barrier_semaphore consumer_producer
+all: 4_1 barrier_semaphore consumer_producer Exercise4_4.class
 
 util.o: util.c
 	$(CC) $(CFLAGS) -c util.c
@@ -28,5 +28,8 @@ consumer_producer.o: consumer_producer.c
 consumer_producer: consumer_producer.o
 	$(CC) consumer_producer.o -o consumer_producer $(THREADFLAGS) $(CFLAGS)
 
+Exercise4_4.class: Exercise4_4.java
+	javac Exercise4_4.java
+
 clean:
-	rm -f *.o 4_1 barrier_semaphore consumer_producer
+	rm -f *.o 4_1 barrier_semaphore consumer_producer Exercise4_4.class
