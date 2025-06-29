@@ -16,8 +16,14 @@
  * angegeben wird (vgl. https://en.cppreference.com/w/cpp/atomic/memory_order.html)
  *
  * c) Weil Pthread-Objekte eben genau das kapseln und intern verwenden
- * d) 1. Nutzung von volatile erzeugt bereits noetige Memory-Barrieren (Quelle?)
- * 2. synchronized verhindert eine Umordnung von Speicherzugriffen (Quelle?)
+   d)
+    volatile verhindert das Umordnen der der Instruktionen auf die volatile Variable.
+    Barrieren werden implizit von Java erzeugt, wenn diese benötigt werden.
+
+    Beim Verwenden von sychronized werden beim Betreten des gesperrten Bereichs alle geteilten Daten
+   neu geladen und beim Verlassen alle geteilten Daten zurueckgeschrieben. Das bedeutet, dass alle
+   Aenderungen immer vollstaendig sichtbar sind, wenn der naechste Thread auf die Daten zugreift. Da
+   die Daten dadurch immer auf dem neuesten Stand sind, wird volatile nicht benoetigt.
  */
 
 #include <stdatomic.h>
@@ -26,13 +32,16 @@
 
 #define OLD 0
 #define NEW 1
-atomic_bool bool var_updated_flag = false;
+atomic_bool var_updated_flag = false;
 int var = OLD;
 
 void thread_a() // executed by thread a
 {
     var = NEW;
     puts("Thread a has updated var!");
+
+    // Alternativ kann man auch eine Memory-Barrier explizit angeben mit (gcc-builtin):
+    // __sync_synchronize();
 
     // memory_order_release erzwingt, dass die vorige var = NEW Zuweisung in anderen Threads
     // sichtbar ist und nicht umsortiert werden kann
