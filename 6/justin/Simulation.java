@@ -101,7 +101,7 @@ public class Simulation {
                 int up = ((i - 1 + n) % n) * n + j;
                 int left = i * n + (j - 1 + n) % n;
                 int right = i * n + (j + 1) % n;
-                int down = (i + 1) % n + j;
+                int down = ((i + 1) % n) * n + j;
 
                 members[i * n + j].friends[0] = members[up];
                 members[i * n + j].friends[1] = members[left];
