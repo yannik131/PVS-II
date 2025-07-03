@@ -1,0 +1,174 @@
+#!/usr/bin/java --source 21
+
+import java.lang.Thread;
+
+public class Simulation {
+
+    public static final int SIZE = 10;
+    public static final int WAITING_TIME = 5000;
+
+    public enum RumorState {
+        LISTENING, SHARING, LOST_INTEREST
+    }
+
+    public class Member implements Runnable {
+        RumorState state;
+        Simulation sim;
+        Member[] friends;
+        int x;
+        int y;
+
+        public Member(RumorState state, Simulation sim, int x, int y) {
+            this.state = state;
+            this.sim = sim;
+            this.x = x;
+            this.y = y;
+        }
+
+        public boolean isSharing() {
+            synchronized(sim) {
+                for(var row : sim.members) {
+                    for(var member : row) {
+                        if (member.state == RumorState.SHARING) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public void run() {
+            while (true) {
+                synchronized(this) {
+                    if (this.state == RumorState.LISTENING) {
+                        try {
+                            this.wait();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                if (!this.isSharing()) {
+                    return;
+                }
+
+                
+                // This is the correct way in the exercise, but bad for visualization
+                // this.state = RumorState.SHARING;
+ 
+                for (var friend : this.friends) {
+                    synchronized (friend) {
+                        try {
+                            if (friend.state == RumorState.LISTENING) {
+                                friend.state = RumorState.SHARING;
+                                friend.notify();
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                this.state = RumorState.LOST_INTEREST;
+                sim.print();
+
+                try {
+                    Thread.sleep(WAITING_TIME);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                this.state = RumorState.LISTENING;
+
+                if (!this.isSharing()) {
+                    this.notifyAllMembers();
+                    return;
+                }
+            }
+        }
+
+        private void notifyAllMembers() {
+            for (var row : this.sim.members) {
+                for (var member : row) {
+                    synchronized (member) {
+                        member.notify();
+                    }
+                }
+            }
+        }
+    }
+
+    public Member[][] members;
+
+    public void print() {
+        synchronized(this) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < SIZE; i++) {
+                for (int j = 0; j < SIZE; j++) {
+                    switch (members[i][j].state) {
+                        case LISTENING -> sb.append("🕵️ ");
+                        case SHARING -> sb.append("📢");
+                        case LOST_INTEREST -> sb.append("😴");
+                    }
+                }
+                sb.append("\n");
+            }
+            System.out.println(sb.toString());
+        }
+    }
+
+    public Simulation() {
+        this.members = new Member[SIZE][SIZE];
+
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                this.members[i][j] = new Member(RumorState.LISTENING, this, i, j);
+            }
+        }
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                Member[] friends = new Member[4];
+                friends[0] = this.members[(i+1)%SIZE][j];
+                friends[1] = this.members[(i-1+10)%SIZE][j];
+                friends[2] = this.members[i][(j+1)%SIZE];
+                friends[3] = this.members[i][(j-1+10)%SIZE];
+                this.members[i][j].friends = friends;
+            }
+        }
+    }
+
+    public void run() {
+        var random = (int)(Math.random() * (SIZE*SIZE));
+        int rand_x = (int) random / SIZE;
+        int rand_y = random % (SIZE);
+
+        print();
+
+        this.members[rand_x][rand_y].state = RumorState.SHARING;
+        Thread[][] threads = new Thread[SIZE][SIZE];
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                threads[i][j] = new Thread(this.members[i][j]);
+                if (rand_x == i && rand_y == j) continue;
+                threads[i][j].start();
+            }
+        }
+        threads[rand_x][rand_y].start();
+
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                try {
+                    threads[i][j].join();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        var sim = new Simulation();
+
+        sim.run();
+    }
+}
