@@ -1,3 +1,5 @@
+import java.util.Random;
+
 public class RumorSimulation {
     public static class Member {
         private Member[] friends;
@@ -100,9 +102,12 @@ public class RumorSimulation {
             threads[i].start();
         }
 
-        synchronized (members[10]) {
-            members[10].tellRumor();
-            members[10].notify();
+        Random random = new Random();
+        int index = random.nextInt(100);
+
+        synchronized (members[index]) {
+            members[index].tellRumor();
+            members[index].notify();
         }
 
         for (int i = 0; i < threads.length; ++i) {
